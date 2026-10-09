@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Center Life</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: Arial, sans-serif; color: #fff; }
+        
+        /* Экран блокировки */
+        #fullscreen-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0a0f14; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        .fs-btn { padding: 20px 40px; font-size: 24px; font-weight: bold; color: #fff; background: #ff3b30; border: none; border-radius: 8px; cursor: pointer; }
+        .fs-hint { margin-top: 15px; color: #aaa; font-size: 14px; }
+
+        /* Экран ввода ника */
+        #nickname-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #111827; z-index: 9998; display: none; flex-direction: column; justify-content: center; align-items: center; }
+        .nick-input { padding: 15px; font-size: 20px; border: 2px solid #3b82f6; background: #1f2937; color: white; border-radius: 8px; width: 300px; text-align: center; margin-bottom: 20px; outline: none; }
+        .nick-btn { padding: 15px 30px; font-size: 18px; font-weight: bold; background: #10b981; border: none; color: white; border-radius: 8px; cursor: pointer; }
+
+        /* Общие стили экранов */
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; background-size: cover; background-position: center; }
+        .active { display: block; }
+
+        /* Кастомное модальное окно */
+        #custom-alert { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; display: none; justify-content: center; align-items: center; }
+        .alert-box { background: #1f2937; border: 3px solid #3b82f6; width: 400px; padding: 25px; border-radius: 12px; text-align: center; }
+        .alert-text { font-size: 18px; margin-bottom: 20px; color: #fff; line-height: 1.4; }
+        .alert-btn { padding: 10px 25px; font-size: 16px; background: #3b82f6; border: none; color: white; border-radius: 6px; cursor: pointer; font-weight: bold; }
+
+        /* Радио-уведомление (1/8 экрана) */
+        #radio-center { position: fixed; top: 0; left: 0; width: 100%; height: 12.5%; background: #dc2626; color: white; display: none; justify-content: center; align-items: center; font-weight: bold; font-size: 20px; border-bottom: 4px solid #fff; z-index: 2000; cursor: pointer; text-align: center; padding: 0 20px; }
+
+        /* Главное меню а-ля Brawl Stars */
+        #shelter-menu { background: #1e3a8a; position: relative; }
+        .bs-top-bar { position: absolute; top: 15px; left: 15px; right: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .profile-capsule { background: #111827; border: 2px solid #f59e0b; padding: 8px 20px; border-radius: 20px; display: flex; align-items: center; gap: 10px; }
+        .profile-avatar { width: 30px; height: 30px; background: #00ffcc; border-radius: 50%; }
+        .profile-name { font-weight: bold; font-size: 16px; color: #fff; }
+        .resources-group { display: flex; gap: 15px; }
+        .resource-capsule { background: #111827; border: 2px solid #10b981; padding: 6px 15px; border-radius: 20px; font-weight: bold; font-size: 16px; display: flex; align-items: center; }
+        .resource-capsule.fuel { border-color: #ef4444; }
+
+        .bs-main-layout { display: flex; justify-content: space-between; align-items: center; width: 100%; height: 100%; padding: 70px 40px 90px 40px; }
+        .side-block { display: flex; flex-direction: column; gap: 15px; width: 200px; }
+        .bs-btn-side { background: #2563eb; border: 3px solid #1d4ed8; color: white; padding: 15px; font-size: 18px; font-weight: bold; border-radius: 10px; cursor: pointer; text-align: center; }
+        
+        /* Персонаж в меню */
+        .center-character-view { width: 180px; height: 260px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+        .specnaz-body-render { width: 90px; height: 180px; background: #374151; border: 4px solid #1f2937; border-radius: 25px 25px 10px 10px; position: relative; }
+        .specnaz-head-render { width: 50px; height: 50px; background: #111827; border: 3px solid #374151; border-radius: 50%; position: absolute; top: -45px; left: 16px; display: flex; justify-content: center; align-items: center; }
+        .specnaz-glass-render { width: 34px; height: 12px; background: #00ffcc; border-radius: 3px; margin-top: -10px; }
+        .specnaz-vest-render { width: 74px; height: 90px; background: #1f2937; border: 3px solid #4b5563; border-radius: 10px; position: absolute; top: 20px; left: 4px; }
+        .character-title { margin-top: 15px; background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 10px; font-weight: bold; font-size: 14px; text-align: center; }
+
+        .bs-bottom-bar { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); width: 320px; }
+        .bs-play-btn { width: 100%; background: #f59e0b; border: 4px solid #d97706; color: white; padding: 15px; font-size: 24px; font-weight: bold; border-radius: 15px; cursor: pointer; text-align: center; box-shadow: 0 5px 0 #b45309; }
+        .bs-play-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #b45309; }
+
+        /* Интерфейс Оружейной и Арсенала */
+        .sub-screen { background: #0f172a; padding: 30px; overflow-y: auto; height: 100%; }
+        .back-btn { position: absolute; top: 15px; left: 15px; padding: 10px 20px; background: #374151; border: none; color: #fff; cursor: pointer; border-radius: 6px; font-weight: bold; }
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; margin-top: 50px; }
+        .item-card { background: #1f2937; border: 2px solid #374151; padding: 15px; border-radius: 8px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
+        .item-card h3 { margin: 0 0 10px 0; font-size: 16px; }
+        .buy-btn, .equip-btn { background: #10b981; color: white; border: none; padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .equip-btn { background: #3b82f6; }
+
+        /* 2D Карта */
+        .map-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); gap: 12px; width: 90%; height: 75%; margin: 70px auto 0 auto; }
+        .map-block { background: #1f2937; border: 2px solid #4b5563; border-radius: 6px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8px; text-align: center; cursor: pointer; }
+        .map-block.attacked { border-color: #ef4444; background: rgba(239, 68, 68, 0.15); }
+        .block-title { font-weight: bold; font-size: 13px; }
+        .block-status { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+
+        /* Поездка */
+        #travel-screen { background: #000; display: none; flex-direction: column; justify-content: center; align-items: center; }
+        .road-animation { width: 70%; height: 16px; background: #333; border-radius: 8px; overflow: hidden; margin-top: 20px; position: relative; }
+        .car-progress { width: 0%; height: 100%; background: #f59e0b; transition: width linear; }
+
+        /* Выбор сектора */
+        #sector-screen { background: rgba(17,24,39,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; }
+        .sector-options { display: flex; gap: 20px; margin-top: 25px; }
+        .sector-btn { padding: 20px 40px; font-size: 18px; background: #1f2937; border: 2px solid #3b82f6; color: white; border-radius: 8px; cursor: pointer; font-weight: bold; }
+
+        /* Боевой экран */
+        #battle-screen { background: #000; overflow: hidden; position: relative; }
+        #battle-canvas { width: 100%; height: 100%; display: block; background: #111827; }
+        
+        /* HUD и Управление */
+        .hud { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; pointer-events: none; }
+        .hud-block { background: rgba(0,0,0,0.7); padding: 8px 15px; border-radius: 6px; font-size: 14px; pointer-events: auto; line-height: 1.3; }
+        .joystick-zone { position: absolute; bottom: 15px; width: 120px; height: 120px; background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.2); border-radius: 50%; pointer-events: auto; }
+        #walk-joystick-zone { left: 30px; }
+        #shoot-joystick-zone { right: 30px; }
+        .joystick-stick { position: absolute; top: 40px; left: 40px; width: 40px; height: 40px; background: rgba(255,255,255,0.4); border-radius: 50%; }
+        .action-buttons { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; pointer-events: auto; }
+        .action-btn { width: 65px; height: 65px; border-radius: 50%; border: none; font-weight: bold; font-size: 11px; color: white; cursor: pointer; }
+        #kick-btn { background: #ea580c; }
+        #swap-btn { background: #2563eb; }
+    </style>
+</head>
+<body>
+    <!-- Запрос полноэкранного режима -->
+    <div id="fullscreen-overlay">
+        <button class="fs-btn" onclick="requestGameFullscreen()">ИГРАТЬ НА ВЕСЬ ЭКРАН</button>
+        <div class="fs-hint">Center Life разработана для горизонтального экрана</div>
+    </div>
+
+    <!-- Ввод Ника -->
+    <div id="nickname-overlay">
+        <h2 style="margin-bottom:10px;">ВВЕДИТЕ СВОЙ НИКНЕЙМ</h2>
+        <input type="text" id="nickname-input" class="nick-input" placeholder="Игрок Спецназа" maxlength="14">
+        <button class="nick-btn" onclick="submitNickname()">ПОДТВЕРДИТЬ</button>
+    </div>
+
+    <!-- Кастомные Уведомления -->
+    <div id="custom-alert">
+        <div class="alert-box">
+            <div id="alert-msg" class="alert-text">Сообщение</div>
+            <button class="alert-btn" onclick="closeAlert()">ОК</button>
+        </div>
+    </div>
+
+    <!-- Радиодиспетчер -->
+    <div id="radio-center" onclick="goToRadioTarget()">Внимание! Захват здания! Нажми, чтобы поехать!</div>
+
+    <!-- Главное Меню -->
+    <div id="shelter-menu" class="screen active">
+        <div class="bs-top-bar">
+            <div class="profile-capsule">
+                <div class="profile-avatar"></div>
+                <div id="player-profile-name" class="profile-name">Спецназ</div>
+            </div>
+            <div class="resources-group">
+                <div class="resource-capsule">Монеты: $<span id="stat-money">500</span></div>
+                <div class="resource-capsule fuel">Топливо: <span id="stat-fuel">100</span>%</div>
+            </div>
+        </div>
+
+        <div class="bs-main-layout">
+            <div class="side-block">
+                <button class="bs-btn-side" onclick="openSubScreen('weaponry')">ОРУЖЕЙНАЯ</button>
+            </div>
+            <div class="center-character-view">
+                <div class="specnaz-body-render">
+                    <div class="specnaz-head-render"><div class="specnaz-glass-render"></div></div>
+                    <div class="specnaz-vest-render"></div>
+                </div>
+                <div id="char-weapon-badge" class="character-title">В руках: Пистолет</div>
+            </div>
+            <div class="side-block">
+                <button class="bs-btn-side" onclick="openSubScreen('arsenal')">АРСЕНАЛ</button>
+            </div>
+        </div>
+        <div class="bs-bottom-bar">
+            <button class="bs-play-btn" onclick="changeScreen('map-screen')">ВЫХОД</button>
+        </div>
+    </div>
+
+    <!-- Оружейная -->
+    <div id="weaponry" class="screen sub-screen">
+        <button class="back-btn" onclick="closeSubScreen()">← В МЕНЮ</button>
+        <h2 style="margin-top:20px;">Оружейная (Магазин снаряжения)</h2>
+        <div class="grid-container" id="shop-grid"></div>
+    </div>
+
+    <!-- Личный Арсенал -->
+    <div id="arsenal" class="screen sub-screen">
+        <button class="back-btn" onclick="closeSubScreen()">← В МЕНЮ</button>
+        <h2 style="margin-top:20px;">Ваш личный арсенал</h2>
+        <div class="grid-container" id="inventory-grid"></div>
+    </div>
+
+    <!-- Тактическая карта городов -->
+    <div id="map-screen" class="screen">
+        <button class="back-btn" onclick="changeScreen('shelter-menu')">← НАЗАД В МЕНЮ</button>
+        <div style="position:absolute; top:18px; left:180px; font-size:18px; color:#ef4444; font-weight:bold;">Топливо: <span id="map-fuel">100</span>%</div>
+        <button class="back-btn" style="left:auto; right:15px; background:#10b981;" onclick="buyFuel()">Заправить бак (+50% за $50)</button>
+        <div class="map-grid" id="city-map"></div>
+    </div>
+
+    <!-- Анимация Дороги -->
+    <div id="travel-screen" class="screen">
+        <h2>Едем по маршруту...</h2>
+        <div class="road-animation"><div id="car-progress-bar" class="car-progress"></div></div>
+    </div>
+
+    <!-- Точки входа -->
+    <div id="sector-screen" class="screen">
+        <h2>Куда войти в первую очередь?</h2>
+        <div class="sector-options">
+            <button class="sector-btn" onclick="startBattle('Главный вход')">Главный вход</button>
+            <button class="sector-btn" onclick="startBattle('Черный ход')">Черный ход</button>
+        </div>
+    </div>
+
+    <!-- Боевой интерфейс -->
+    <div id="battle-screen" class="screen">
+        <canvas id="battle-canvas"></canvas>
+        <div class="hud">
+            <div class="hud-block">
+                Локация: <span id="hud-loc-name">-</span><br>
+                Вход: <span id="hud-sector-name">-</span><br>
+                Здоровье: <span id="hud-hp">100</span>%
+            </div>
+            <div class="hud-block">
+                Заложники: <span id="hud-civs">0</span><br>
+                Террористы: <span id="hud-enemies">0</span><br>
+                Оружие: <span id="hud-weapon-name">-</span>
+            </div>
+        </div>
+        <div id="walk-joystick-zone" class="joystick-zone"><div id="walk-stick" class="joystick-stick"></div></div>
+        <div class="action-buttons">
+            <button id="kick-btn" class="action-btn" onclick="performKick()">УДАР<br>НОГОЙ</button>
+            <button id="swap-btn" class="action-btn" onclick="performWeaponSwap()">СМЕНА<br>ОРУЖИЯ</button>
+        </div>
+        <div id="shoot-joystick-zone" class="joystick-zone"><div id="shoot-stick" class="joystick-stick"></div></div>
+    </div>
+    <script>
+        // Состояние игрока
+        const player = {
+            nickname: 'Игрок',
+            money: 600,
+            fuel: 100,
+            inventory: ['Пистолет'],
+            activeWeaponIndex: 0,
+            hp: 100
+        };
+
+        const weaponsConfig = {
+            'Пистолет': { length: 15, color: '#9ca3af', damage: 25, speed: 10, rate: 300 },
+            'Автомат АК-47': { length: 28, color: '#b45309', damage: 45, speed: 14, rate: 120 },
+            'Дробовик': { length: 25, color: '#4b5563', damage: 80, speed: 8, rate: 700 },
+            'Боевой Нож': { length: 10, color: '#e5e7eb', damage: 35, speed: 0, rate: 200 }
+        };
+
+        const itemsShop = [
+            { name: 'Пистолет', price: 0 },
+            { name: 'Автомат АК-47', price: 300 },
+            { name: 'Дробовик', price: 400 },
+            { name: 'Бронежилет', price: 150 },
+            { name: 'Граната', price: 80 },
+            { name: 'Боевой Нож', price: 100 },
+            { name: 'Шприц (Лечение)', price: 50 },
+            { name: 'Шприц (Усыпление)', price: 75 }
+        ];
+
+        const locations = [
+            { id: 'base', name: 'База Спецназа', type: 'base' },
+            { id: 'school1', name: 'Школа №1', type: 'danger', attacked: false },
+            { id: 'school2', name: 'Школа №2', type: 'danger', attacked: false },
+            { id: 'school3', name: 'Школа №3', type: 'danger', attacked: false },
+            { id: 'school4', name: 'Школа №4', type: 'danger', attacked: false },
+            { id: 'shop1', name: 'Магазин №1', type: 'shop' },
+            { id: 'shop2', name: 'Магазин №2', type: 'shop' },
+            { id: 'home1', name: 'Жилой Мод №1', type: 'danger', attacked: false },
+            { id: 'home2', name: 'Жилой Мод №2', type: 'danger', attacked: false },
+            { id: 'home3', name: 'Жилой Мод №3', type: 'danger', attacked: false },
+            { id: 'home4', name: 'Жилой Мод №4', type: 'danger', attacked: false },
+            { id: 'home5', name: 'Жилой Мод №5', type: 'danger', attacked: false },
+            { id: 'home6', name: 'Жилой Мод №6', type: 'danger', attacked: false },
+        ];
+
+        let activeScreenId = 'shelter-menu';
+        let selectedLocation = null;
+
+        let canvas, ctx, loopInterval;
+        let pX = 100, pY = 400, pFacing = 1; 
+        let gameObjects = [];
+        let walkAxis = { x: 0, y: 0 };
+        let shootAxis = { x: 0, y: 0 };
+        let lastShootTime = 0;
+        let floorY = 450;
+        let scaleFactor = 1.7; 
+
+        let kickAnimTimer = 0;
+        let isKicking = false;
+
+        function showAlert(msg) {
+            document.getElementById('alert-msg').innerText = msg;
+            document.getElementById('custom-alert').style.display = 'flex';
+        }
+        function closeAlert() { document.getElementById('custom-alert').style.display = 'none'; }
+
+        function requestGameFullscreen() {
+            const doc = document.documentElement;
+            if (doc.requestFullscreen) doc.requestFullscreen();
+            else if (doc.webkitRequestFullScreen) doc.webkitRequestFullScreen();
+            
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(() => {});
+            }
+            document.getElementById('fullscreen-overlay').style.display = 'none';
+            document.getElementById('nickname-overlay').style.display = 'flex';
+        }
+
+        function submitNickname() {
+            let input = document.getElementById('nickname-input').value.trim();
+            if(input) player.nickname = input;
+            document.getElementById('player-profile-name').innerText = player.nickname;
+            document.getElementById('nickname-overlay').style.display = 'none';
+            updateStatsUI();
+            startAttackTimer();
+        }
+
+        function changeScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            activeScreenId = screenId;
+            updateStatsUI();
+            if(screenId === 'map-screen') renderMap();
+        }
+
+        function openSubScreen(screenId) {
+            if(screenId === 'weaponry') renderShop();
+            if(screenId === 'arsenal') renderInventory();
+            changeScreen(screenId);
+        }
+        function closeSubScreen() { changeScreen('shelter-menu'); }
+
+        function updateStatsUI() {
+            document.getElementById('stat-money').innerText = player.money;
+            document.getElementById('stat-fuel').innerText = Math.floor(player.fuel);
+            document.getElementById('map-fuel').innerText = Math.floor(player.fuel);
+            let curWeap = player.inventory[player.activeWeaponIndex] || 'Нет';
+            document.getElementById('char-weapon-badge').innerText = "В руках: " + curWeap;
+        }
+
+        function renderShop() {
+            const grid = document.getElementById('shop-grid');
+            grid.innerHTML = '';
+            itemsShop.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'item-card';
+                card.innerHTML = `<h3>${item.name}</h3><p>Цена: $${item.price}</p><button class="buy-btn" onclick="buyItem('${item.name}', ${item.price})">Купить</button>`;
+                grid.appendChild(card);
+            });
+        }
+
+        function renderInventory() {
+            const grid = document.getElementById('inventory-grid');
+            grid.innerHTML = '';
+            player.inventory.forEach((name, index) => {
+                const card = document.createElement('div');
+                card.className = 'item-card';
+                card.innerHTML = `<h3>${name}</h3><p>${index === player.activeWeaponIndex ? 'Экипировано' : 'В запасе'}</p><button class="equip-btn" onclick="equipWeapon(${index})">Взять</button>`;
+                grid.appendChild(card);
+            });
+        }
+
+        function buyItem(name, price) {
+            if (player.money >= price) {
+                player.money -= price;
+                player.inventory.push(name);
+                showAlert(`Вы купили ${name}! Добавлено в арсенал.`);
+                renderShop();
+                updateStatsUI();
+            } else { showAlert('Не хватает денег!'); }
+        }
+
+        function equipWeapon(index) {
+            player.activeWeaponIndex = index;
+            showAlert(`Вы взяли в руки: ${player.inventory[index]}`);
+            renderInventory();
+            updateStatsUI();
+        }
+
+        function buyFuel() {
+            if (player.money >= 50) {
+                player.money -= 50;
+                player.fuel = Math.min(100, player.fuel + 50);
+                updateStatsUI();
+            } else { showAlert("Недостаточно средств для заправки!"); }
+        }
+        function startAttackTimer() {
+            setTimeout(() => { triggerTerrorAttack(); }, 20000);
+            setInterval(() => { triggerTerrorAttack(); }, 50000);
+        }
+
+        function triggerTerrorAttack() {
+            const dangerLocs = locations.filter(l => l.type === 'danger' && !l.attacked);
+            if(dangerLocs.length > 0) {
+                let loc = dangerLocs[Math.floor(Math.random() * dangerLocs.length)];
+                loc.attacked = true;
+                loc.enemies = Math.floor(Math.random() * 3) + 3;
+                loc.civilians = Math.floor(Math.random() * 3) + 3;
+                loc.isBurning = Math.random() > 0.4;
+
+                let radio = document.getElementById('radio-center');
+                radio.innerText = `🚨 СИРЕНА: Захват [${loc.name}]! (НАЖМИ ЧТОБЫ ЕХАТЬ)`;
+                radio.style.display = 'flex';
+                if(activeScreenId === 'map-screen') renderMap();
+            }
+        }
+
+        function goToRadioTarget() {
+            document.getElementById('radio-center').style.display = 'none';
+            changeScreen('map-screen');
+        }
+
+        function renderMap() {
+            const container = document.getElementById('city-map');
+            container.innerHTML = '';
+            locations.forEach(loc => {
+                const block = document.createElement('div');
+                block.className = `map-block ${loc.attacked ? 'attacked' : ''}`;
+                let status = 'Чисто';
+                if(loc.type === 'base') status = 'Штаб';
+                if(loc.type === 'shop') status = 'Магазин';
+                if(loc.attacked) status = '⚠️ ЗАХВАТ!';
+                
+                block.innerHTML = `<div class="block-title">${loc.name}</div><div class="block-status">${status}</div>`;
+                block.onclick = () => selectRoute(loc);
+                container.appendChild(block);
+            });
+        }
+
+        function selectRoute(loc) {
+            if (loc.type === 'base') { changeScreen('shelter-menu'); return; }
+            if (player.fuel < 20) { showAlert('Закончился бензин! Заправьтесь.'); return; }
+            
+            player.fuel -= 20;
+            selectedLocation = loc;
+            document.getElementById('radio-center').style.display = 'none';
+
+            changeScreen('travel-screen');
+            document.getElementById('car-progress-bar').style.width = '0%';
+            setTimeout(() => document.getElementById('car-progress-bar').style.width = '100%', 50);
+
+            setTimeout(() => {
+                if(loc.type === 'shop') { openSubScreen('weaponry'); } 
+                else {
+                    document.getElementById('travel-screen').style.display = 'none';
+                    document.getElementById('sector-screen').style.display = 'flex';
+                }
+            }, 2500);
+        }
+
+        function startBattle(sector) {
+            document.getElementById('sector-screen').style.display = 'none';
+            changeScreen('battle-screen');
+            player.hp = 100;
+            document.getElementById('hud-loc-name').innerText = selectedLocation.name;
+            document.getElementById('hud-sector-name').innerText = sector;
+
+            canvas = document.getElementById('battle-canvas');
+            ctx = canvas.getContext('2d');
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            floorY = canvas.height - 80; pX = 100; pY = floorY - 30;
+
+            gameObjects = [];
+            let enemyCount = selectedLocation.attacked ? selectedLocation.enemies : 0;
+            let civCount = selectedLocation.attacked ? selectedLocation.civilians : 0;
+
+            // Выбираем конкретный центр зоны захвата для кучности террористов (Исправление 1)
+            let baseZoneX = 400 + Math.random() * (canvas.width - 600);
+
+            for(let i=0; i<enemyCount; i++){
+                gameObjects.push({ 
+                    type: 'enemy', 
+                    x: baseZoneX + (Math.random() * 120 - 60), // Кучно в одной части
+                    y: floorY - 30, 
+                    hp: 60, 
+                    facing: -1, 
+                    speed: 1 + Math.random() * 0.8, 
+                    shootCooldown: Math.random() * 100 
+                });
+            }
+            for(let i=0; i<civCount; i++){
+                gameObjects.push({ type: 'civilian', x: 300 + Math.random() * (canvas.width - 450), y: floorY - 24, alive: true });
+            }
+            if(selectedLocation.isBurning) {
+                for(let i=0; i<4; i++) { gameObjects.push({ type: 'fire', x: baseZoneX + (Math.random() * 200 - 100), y: floorY - 10 }); }
+            }
+
+            setupJoysticks();
+            if(loopInterval) clearInterval(loopInterval);
+            loopInterval = setInterval(battleLoop, 1000 / 60);
+        }
+        function setupJoysticks() {
+            setupSingleJoystick('walk-joystick-zone', 'walk-stick', (x, y) => { walkAxis.x = x; walkAxis.y = y; });
+            setupSingleJoystick('shoot-joystick-zone', 'shoot-stick', (x, y) => { shootAxis.x = x; shootAxis.y = y; });
+        }
+
+        function setupSingleJoystick(zoneId, stickId, callback) {
+            const zone = document.getElementById(zoneId); const stick = document.getElementById(stickId); const r = 40;
+            function move(e) {
+                e.preventDefault(); 
+                // Исправление 2: Корректный разбор touches для мобильных платформ без потери фокуса
+                let t = e.touches ? e.touches[0] : e; 
+                let rect = zone.getBoundingClientRect();
+                let dx = t.clientX - (rect.left + rect.width/2); let dy = t.clientY - (rect.top + rect.height/2);
+                let dist = Math.hypot(dx, dy); if(dist > r) { dx = (dx/dist)*r; dy = (dy/dist)*r; }
+                stick.style.transform = `translate(${dx}px, ${dy}px)`; callback(dx/r, dy/r);
+            }
+            function end() { stick.style.transform = 'translate(0px, 0px)'; callback(0,0); }
+            zone.addEventListener('touchstart', move, {passive:false}); zone.addEventListener('touchmove', move, {passive:false}); zone.addEventListener('touchend', end);
+        }
+
+        function performKick() {
+            isKicking = true; kickAnimTimer = 10;
+            gameObjects.forEach(obj => {
+                if(obj.type === 'enemy') {
+                    let d = Math.abs(obj.x - pX);
+                    if(d < 60 && Math.sign(obj.x - pX) === pFacing) { obj.x += pFacing * 90; obj.hp -= 15; }
+                }
+            });
+        }
+
+        function performWeaponSwap() {
+            if(player.inventory.length <= 1) return;
+            player.activeWeaponIndex = (player.activeWeaponIndex + 1) % player.inventory.length;
+            updateStatsUI();
+        }
+
+        function battleLoop() {
+            ctx.fillStyle = '#111827'; ctx.fillRect(0,0,canvas.width, canvas.height);
+            ctx.fillStyle = '#374151'; ctx.fillRect(0, floorY, canvas.width, 80);
+
+            if(walkAxis.x !== 0) pFacing = Math.sign(walkAxis.x);
+            pX += walkAxis.x * 3.5; pX = Math.max(20, Math.min(canvas.width - 20, pX));
+
+            let currentWeapon = player.inventory[player.activeWeaponIndex] || 'Пистолет';
+            let weapConf = weaponsConfig[currentWeapon] || weaponsConfig['Пистолет'];
+            document.getElementById('hud-weapon-name').innerText = currentWeapon;
+
+            ctx.save(); ctx.translate(pX, pY); ctx.scale(scaleFactor, scaleFactor);
+            ctx.fillStyle = '#1e3a8a'; ctx.fillRect(-8, -25, 16, 25);
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(-9, -20, 18, 16);
+            ctx.fillStyle = '#374151'; ctx.fillRect(-5, 0, 4, 10); ctx.fillRect(1, 0, 4, 10);
+            ctx.fillStyle = '#111827'; ctx.beginPath(); ctx.arc(0, -31, 7, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#00ffcc'; ctx.fillRect(pFacing > 0 ? 1 : -6, -33, 5, 3);
+
+            if (isKicking) { ctx.fillStyle = '#ea580c'; ctx.fillRect(pFacing > 0 ? 4 : -14, -6, 10, 5); kickAnimTimer--; if(kickAnimTimer <= 0) isKicking = false; }
+
+            ctx.strokeStyle = weapConf.color; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, -12);
+            let angle = Math.atan2(shootAxis.y, shootAxis.x);
+            if(shootAxis.x === 0 && shootAxis.y === 0) angle = pFacing > 0 ? 0 : Math.PI;
+            ctx.lineTo(Math.cos(angle) * (weapConf.length / scaleFactor), -12 + Math.sin(angle) * (weapConf.length / scaleFactor));
+            ctx.stroke(); ctx.restore();
+
+            let now = Date.now();
+            if((Math.abs(shootAxis.x) > 0.3 || Math.abs(shootAxis.y) > 0.3) && now - lastShootTime > weapConf.rate && currentWeapon !== 'Боевой Нож') {
+                lastShootTime = now;
+                let bulletAngle = Math.atan2(shootAxis.y, shootAxis.x);
+                gameObjects.push({ type: 'bullet', isPlayer: true, x: pX, y: pY - 12 * scaleFactor, vx: Math.cos(bulletAngle) * weapConf.speed, vy: Math.sin(bulletAngle) * weapConf.speed, dmg: weapConf.damage });
+            }
+
+            let activeEnemies = 0; let activeCivs = 0;
+            for(let i = gameObjects.length - 1; i >= 0; i--) {
+                let obj = gameObjects[i];
+                if(obj.type === 'bullet') {
+                    obj.x += obj.vx; obj.y += obj.vy; ctx.fillStyle = '#eab308'; ctx.fillRect(obj.x, obj.y, 5, 3);
+                    if(obj.isPlayer) {
+                        gameObjects.forEach(t => { if(t.type === 'enemy' && Math.hypot(t.x - obj.x, t.y - obj.y) < 25) { t.hp -= obj.dmg; gameObjects.splice(i,1); } });
+                    } else {
+                        if(Math.hypot(pX - obj.x, (pY - 15) - obj.y) < 25) { player.hp -= 8; gameObjects.splice(i,1); }
+                    }
+                }
+                else if(obj.type === 'enemy') {
+                    activeEnemies++; obj.shootCooldown++;
+                    let dist = pX - obj.x; obj.facing = Math.sign(dist);
+                    if(Math.abs(dist) > 200) obj.x += obj.facing * obj.speed;
+                    else if(Math.abs(dist) < 100) obj.x -= obj.facing * obj.speed;
+
+                    if(obj.shootCooldown > 90) {
+                        obj.shootCooldown = 0; let a = Math.atan2((pY - 15) - obj.y, pX - obj.x);
+                        gameObjects.push({ type: 'bullet', isPlayer: false, x: obj.x, y: obj.y - 15, vx: Math.cos(a) * 6, vy: Math.sin(a) * 6 });
+                    }
+                    if(obj.hp <= 0) { gameObjects.splice(i,1); continue; }
+                    ctx.save(); ctx.translate(obj.x, obj.y); ctx.scale(scaleFactor, scaleFactor);
+                    ctx.fillStyle = '#111827'; ctx.fillRect(-7, -24, 14, 24);
+                    ctx.fillStyle = '#dc2626'; ctx.fillRect(-5, -20, 10, 10);
+                    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(0, -29, 6, 0, Math.PI*2); ctx.fill(); ctx.restore();
+                }
+                else if(obj.type === 'civilian') {
+                    if(obj.alive) {
+                        activeCivs++; if(Math.hypot(pX - obj.x, pY - obj.y) < 35) { obj.alive = false; player.money += 70; }
+                        if(Math.random() < 0.001) obj.alive = false;
+                    }
+                    ctx.save(); ctx.translate(obj.x, obj.y); ctx.scale(scaleFactor, scaleFactor);
+                    ctx.fillStyle = obj.alive ? '#16a34a' : '#7f1d1d'; ctx.fillRect(-6, -20, 12, 20);
+                    ctx.fillStyle = '#fbcfe8'; ctx.beginPath(); ctx.arc(0, -25, 5, 0, Math.PI*2); ctx.fill(); ctx.restore();
+                }
+                else if(obj.type === 'fire') {
+                    ctx.fillStyle = `rgba(239, 68, 68, ${0.6 + Math.random() * 0.4})`; ctx.beginPath(); ctx.arc(obj.x, obj.y - 10, 15 + Math.random() * 8, 0, Math.PI * 2); ctx.fill();
+                    if(Math.abs(pX - obj.x) < 30) player.hp -= 0.15;
+                }
+            }
+
+            document.getElementById('hud-hp').innerText = Math.max(0, Math.floor(player.hp));
+            document.getElementById('hud-enemies').innerText = activeEnemies;
+            document.getElementById('hud-civs').innerText = activeCivs;
+
+            if(player.hp <= 0) endBattle(false);
+            else if(activeEnemies === 0) endBattle(true, activeCivs);
+        }
+
+        function endBattle(isWin, leftCivs = 0) {
+            clearInterval(loopInterval);
+            if(isWin) {
+                let winPrize = 250 + (leftCivs * 80); player.money += winPrize;
+                if(selectedLocation) selectedLocation.attacked = false;
+                showAlert(`МИССИЯ ВЫПОЛНЕНА!\nНаграда: $${winPrize}`);
+            } else { showAlert("ВАС РАНИЛИ В БОЮ!"); }
+            changeScreen('shelter-menu');
+        }
+
+        updateStatsUI();
+    </script>
+</body>
+</html>
